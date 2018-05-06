@@ -1,0 +1,27 @@
+{
+  "name": "@skazska/fire-marking-codegen-cli",
+  "preferGlobal": true,
+  "bin": "./index.js",
+  "version": "0.0.0",
+  "description": "marking codes generation commandline tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skazska/fire-marking-codegen-cli.git"
+  },
+  "author": "skazska@gmail.com",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/skazska/fire-marking-codegen-cli/issues"
+  },
+  "homepage": "https://github.com/skazska/fire-marking-codegen-cli#readme",
+  "dependencies": {
+    "@skazska/marking-codes": "0.0.0",
+    "@skazska/nano-dsa": "^0.1.2",
+    "commander": "^2.15.1",
+    "inquirer": "^5.2.0"
+  }
+}
