@@ -58,15 +58,24 @@ function createBatch(producerId, producerName, id, description, codeVersion) {
 
 /**
  *
- * @param {{q: number, p: number, g: number}} dsaParams
  * @param {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}} batch
  * @param {number} id
  */
-function createBatchMarkCode(dsaParams, batch, id) {
-
+function createBatchMarkCode(batch, id) {
+    return codes.encode(batch, id, batch.version);
 }
+
+function generateRange(batch, from, to) {
+    const result = [];
+    for (let i = from; i < to + 1; i++) {
+        result.push(createBatchMarkCode(batch, i));
+    }
+    return result;
+}
+
 
 module.exports = {
     createBatch: createBatch,
+    generateRange: generateRange,
     createBatchMarkCode: createBatchMarkCode
 };
