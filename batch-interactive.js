@@ -1,10 +1,11 @@
 const { prompt } = require('inquirer');
+'use strict';
 
 const createBatchPrompts = [
     {
         type : 'input',
-        name : 'firstname',
-        message : 'Enter firstname ...'
+        name : 'producerId',
+        message : 'Enter producerId ...'
     },
     {
         type : 'input',
@@ -24,6 +25,8 @@ const createBatchPrompts = [
 ];
 
 function createBatchPrompt(batchRecord) {
+
+
 
 }
 

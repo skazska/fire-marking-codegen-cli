@@ -8,6 +8,54 @@ const dsaTest = require('./dsaTest');
  * Version 0 marking codes assumes 4 base36 digits for sign (so up to 1295 for r and s each)
  */
 
+class BatchController {
+   constructor (storage) {
+      this.promise = this.controllerReady(storage);
+   }
+
+   controllerReady (storage) {
+      return storage.then(instance => {this._storage = instance;});
+   }
+
+   createBatch ({producerId, producerName, id, description, codeVersion}) {
+      let dsaParams = {};
+      let keys = {};
+      let testResult = false;
+      let trial = 0;
+
+      //generate dsa params & keys
+      console.log('generating DSA params for batch...');
+      do {
+         do {
+            //generate dsa codes for batch
+            do {
+               dsaParams = dsa.generateParams(1500, 30000);
+            } while (dsaParams.q < 300 || dsaParams.q > 1295 || dsaParams.p < 300 || dsaParams.q > 7000000 || dsaParams.g < 30 || dsaParams.g > 7000000);
+
+            keys = dsa.generateKeys(dsaParams);
+         } while (keys.pri < 300 || keys.pri > 1295 || keys.pub < 5000);
+         testResult = dsaTest.quickTest(dsaParams, keys, ++trial);
+      } while (!testResult);
+      console.log('all done!');
+
+      //create batch full record
+      const result = {
+         producerId: producerId,
+         producerName: producerName,
+         id: id,
+         description: description,
+         version: codeVersion,
+         dsa: dsaParams,
+         publicKey: keys.pub,
+         privateKey: keys.pri
+      };
+
+      console.log('code batch record: ', result);
+
+      return result;
+   }
+}
+
 /**
  * Creates code batch record
  * @param {number} producerId
@@ -91,6 +139,7 @@ function generateRange(batch, from, to) {
 
 
 module.exports = {
+    BatchController: BatchController,
     createBatch: createBatch,
     generateRange: generateRange,
 };

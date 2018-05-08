@@ -1,9 +1,22 @@
 #!/usr/bin/env node
+'use strict';
+
 const fs = require('fs');
 const program = require('commander');
 // Require logic.js file and extract controller functions using JS destructuring assignment
-const { createBatch, generateRange } = require('./batch-controller');
 const { createBatchPrompt } = require('./batch-interactive');
+const { BatchFileStorage } = require('./batch-storage');
+const { BatchController, createBatch, generateRange } = require('./batch-controller');
+
+const batchStorage = new BatchFileStorage(process.cwd() + '/data');
+const batchController = new BatchController(batchStorage);
+
+const appReady = Promise.all(
+   [
+      batchStorage.promise,
+      batchController.promise
+   ]
+);
 
 const checkInt = (val) => {
     return /^[0-9]+$/.test(val);
@@ -33,33 +46,31 @@ program
     .description('Create code batch, <prodicerId> - (number), <producerName> - (string), <batchId> - (number), ' +
        '<batchDescr> - (string) <markingVersion> - (number) currently - 0 only supported')
     .action((producerId, producerName, batchId, batchDescr, markingVersion) => {
-        if (checkInt(producerId)) {
-            producerId = parseInt(producerId);
-        } else {
-            console.log('producerId expected to be a number, provided value is ', producerId);
-        }
-        if (checkInt(batchId)) {
-            batchId = parseInt(batchId);
-        } else {
-            console.log('batchId expected to be a number, provided value is ', batchId);
-        }
-        if (checkInt(markingVersion)) {
-            markingVersion = parseInt(markingVersion);
-        } else {
-            console.log('markingVersion expected to be a number, provided value is ', markingVersion);
-        }
-        
-        let dataPath = prepareFolders(batchId);
-        dataPath += '/batchRecord.json';
-        if (fs.existsSync(dataPath)) {
-            console.log('batch record file ' + dataPath + ' exists!!! abort...');
-            return 0;
-        }
-        const batchRecord = createBatch(producerId, producerName, batchId, batchDescr, markingVersion);
-        fs.appendFile(dataPath, JSON.stringify(batchRecord), function (err) {
-            if (err) throw err;
-            console.log('Saved!');
+        let batch = {
+            producerId: parseInt(producerId),
+            producerName: producerName,
+            batchId: parseInt(batchId),
+            batchDescr: batchDescr,
+            markingVersion: parseInt(markingVersion)
+        };
+
+        Promise.all([
+            appReady,
+            createBatchPrompt(batch)
+        ]).then( ([ [batchStorage, batchController], batchRecord ]) => {
+            batchController.createBatch(batchRecord);
         });
+        // let dataPath = prepareFolders(batchId);
+        // dataPath += '/batchRecord.json';
+        // if (fs.existsSync(dataPath)) {
+        //     console.log('batch record file ' + dataPath + ' exists!!! abort...');
+        //     return 0;
+        // }
+        // const batchRecord = createBatch(producerId, producerName, batchId, batchDescr, markingVersion);
+        // fs.appendFile(dataPath, JSON.stringify(batchRecord), function (err) {
+        //     if (err) throw err;
+        //     console.log('Saved!');
+        // });
     });
 
 program

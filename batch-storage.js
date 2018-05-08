@@ -2,6 +2,14 @@ const fs = require('fs');
 'use strict';
 
 class batchStorage {
+   storageReady (storage) {
+      return Promise.reject(new Error('Abstract method invocation!'));
+   }
+
+   notFixed (key) {
+      return Promise.reject(new Error('Abstract method invocation!'));
+   }
+
    isCreatable (batchId) {
       return Promise.reject(new Error('Abstract method invocation!'));
    }
@@ -15,10 +23,10 @@ const fsMkDir = (path, resolve, reject) => {
 };
 
 class batchFileStorage extends batchStorage {
-   constructor () {
+   constructor (path) {
       super();
-      this.dataPath = process.cwd() + '/data';
-      this.promise = this.storageReady(this.dataPath);
+      this._dataPath = path;
+      this.promise = this.storageReady(this._dataPath).then(() => { return this; });
    }
 
    storageReady (storage) {
@@ -37,7 +45,7 @@ class batchFileStorage extends batchStorage {
    }
 
    isCreatable (batchId) {
-      let dataPath = this.dataPath + '/' + batchId;
+      let dataPath = this._dataPath + '/' + batchId;
       let conditions = [
          this.storageReady(dataPath),
          this.notFixed(dataPath + '/batchRecord.json')
