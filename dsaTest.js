@@ -46,6 +46,13 @@ function vsHash(text) {
     }, 0)];
 }
 
+/**
+ * qiuck test for given dsa parameters and keys
+ * @param params
+ * @param keys
+ * @param trial
+ * @return {boolean}
+ */
 function quickTest(params, keys, trial) {
     let failCnt = {
         tot: 0,

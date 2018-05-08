@@ -9,7 +9,7 @@ const dsaTest = require('./dsaTest');
  */
 
 /**
- *
+ * Creates code batch record
  * @param {number} producerId
  * @param {string} producerName
  * @param {number} id
@@ -57,7 +57,7 @@ function createBatch(producerId, producerName, id, description, codeVersion) {
 
 
 /**
- *
+ * creates markup code from id for batch
  * @param {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}} batch
  * @param {number} id
  */
@@ -65,10 +65,22 @@ function createBatchMarkCode(batch, id) {
     return codes.encode(batch, id, batch.version);
 }
 
+/**
+ * generates range of codes for batch from ids in range [from, to] (inclusive)
+ * @param batch
+ * @param from
+ * @param to
+ * @return {Array}
+ */
 function generateRange(batch, from, to) {
     const result = [];
     for (let i = from; i < to + 1; i++) {
-        result.push(createBatchMarkCode(batch, i));
+        let code = createBatchMarkCode(batch, i);
+        let decode = codes.decode(code, batch);
+        result.push({
+           code: createBatchMarkCode(batch, i),
+           decoded: decode
+        });
     }
     return result;
 }
