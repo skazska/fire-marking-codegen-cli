@@ -62,8 +62,6 @@ function quickTest(params, keys, trial) {
     let maxS = 0;
     let maxR = 0;
 
-    let result = false;
-
     console.log('batch creation dsa params & keys quick test: (trial ' + trial + ')');
 
     for (let j = 0; j < 8; j++) {
@@ -118,7 +116,7 @@ function quickTest(params, keys, trial) {
     );
     console.log('maxS: ', maxS, 'maxR: ', maxR);
 
-    result = failCnt.tot === 8000 && failCnt.fails === 0 && failCnt.collisions/failCnt.tot*100 < 5;
+    let result = failCnt.tot === 8000 && failCnt.fails === 0 && failCnt.collisions/failCnt.tot*100 < 5;
 
     console.log('result: ', result ? 'Ok.' : 'not Ok.');
 

@@ -75,11 +75,15 @@ function createBatchMarkCode(batch, id) {
 function generateRange(batch, from, to) {
     const result = [];
     for (let i = from; i < to + 1; i++) {
-        let code = createBatchMarkCode(batch, i);
-        let decode = codes.decode(code, batch);
+        let code;
+        let decode;
+        do {
+            code = createBatchMarkCode(batch, i);
+            decode = codes.decode(code, batch);
+        } while ( !decode.signOk );
         result.push({
-           code: createBatchMarkCode(batch, i),
-           decoded: decode
+            code: code,
+            decoded: decode
         });
     }
     return result;
@@ -89,5 +93,4 @@ function generateRange(batch, from, to) {
 module.exports = {
     createBatch: createBatch,
     generateRange: generateRange,
-    createBatchMarkCode: createBatchMarkCode
 };

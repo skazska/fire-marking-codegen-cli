@@ -86,10 +86,10 @@ program
 
         let dataPath = prepareFolders(batchId);
         let batchRecordPath = dataPath + '/batchRecord.json';
-        let txtDataPath = dataPath + '/codes_' + idFrom + '_' + idTo + '.txt';
+        let csvDataPath = dataPath + '/codes_' + idFrom + '_' + idTo + '.csv';
         let jsonDataPath = dataPath + '/codes_' + idFrom + '_' + idTo + '.json';
-        if (fs.existsSync(txtDataPath)) {
-            console.log('batch record file ' + txtDataPath + ' exists!!! abort...');
+        if (fs.existsSync(csvDataPath)) {
+            console.log('batch record file ' + csvDataPath + ' exists!!! abort...');
             return 0;
         }
         if (fs.existsSync(jsonDataPath)) {
@@ -105,12 +105,22 @@ program
             console.log('batch record: ', data);
 
             const codes = generateRange(data, idFrom, idTo);
+
+            const getCsvLine = (code, dCode, pCode, vCode) => {
+                return code + ';' + dCode + ';' + pCode + ';' + vCode + ';' + '\n';
+            };
+            
+            fs.appendFileSync(csvDataPath, getCsvLine('code', 'dCode', 'pCode', 'vCode'));
+            
             codes.forEach((code, i) => {
-                fs.appendFile(txtDataPath, code.code + '\n', function (err) {
-                    if (err) throw err;
-                    if (i % 100 === 0) console.log('Saved ' + i + ' codes');
-                    if (i === codes.length - 1) console.log('Saved ' + i + ' codes Done!');
-                });
+                let dCode = '"https://d.rks.plus/' + code.code + '"';
+                let pCode = '"https://p.rks.plus/' + code.code + '"';
+                let vCode = '"' + code.decoded.descriptor + '-' + code.decoded.producerIdCode + '-'
+                    + code.decoded.batchIdCode + '-' + code.decoded.idCode + '-' + code.decoded.sign + '"';
+
+                fs.appendFileSync(csvDataPath, getCsvLine('"'+code.code+'"', dCode, pCode, vCode));
+                if (i % 100 === 0) console.log('Saved ' + i + ' codes');
+                if (i === codes.length - 1) console.log('Saved ' + i + ' codes Done!');
             });
 
            fs.appendFile(jsonDataPath, JSON.stringify(codes, null, '  '), function (err) {
