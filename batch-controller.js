@@ -1,6 +1,5 @@
 const codes = require('@skazska/marking-codes');
-const dsa = require('@skazska/nano-dsa');
-const dsaTest = require('./dsaTest');
+const fs = require('fs');
 
 /**
  * Version 0 marking codes generator
@@ -8,89 +7,81 @@ const dsaTest = require('./dsaTest');
  * Version 0 marking codes assumes 4 base36 digits for sign (so up to 1295 for r and s each)
  */
 
-/**
- * Creates code batch record
- * @param {number} producerId
- * @param {string} producerName
- * @param {number} id
- * @param {string} description
- * @param {number} [codeVersion]
- * @returns {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}}
- */
-function createBatch(producerId, producerName, id, description, codeVersion) {
-    let dsaParams = {};
-    let keys = {};
-    let testResult = false;
-    let trial = 0;
+class BatchController {
+   constructor (storage) {
+      this.promise = this.controllerReady(storage).then(smth => { return this; });
+   }
 
-    //generate dsa params & keys
-    console.log('generating DSA params for batch...');
-    do {
-        do {
-            //generate dsa codes for batch
+   controllerReady (storage) {
+      return storage.promise.then(instance => {
+          this._storage = instance;
+      });
+   }
+
+    /**
+     * creates batch record
+     * @param {{id: number, version: number, producerId: number}} batchData
+     * @return {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}}
+     */
+   createBatch (batchData) {
+       const result =  codes.prepareBatch(batchData);
+       //create batch full record
+       result.producerName = batchData.producerName;
+       result.description = batchData.description;
+       return result;
+   }
+
+    /**
+     * creates markup code from id for batch
+     * @param {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}} batch
+     * @param {number} id
+     */
+    createBatchMarkCode (batch, id) {
+        return codes.encode(batch, id, batch.version);
+    }
+
+    /**
+     * generates range of codes for batch from ids in range [from, to] (inclusive)
+     * @param batch
+     * @param from
+     * @param to
+     * @return {Array}
+     */
+    generateRange (batch, from, to) {
+        const result = [];
+        for (let i = from; i < to + 1; i++) {
+            let code;
+            let decode;
             do {
-                dsaParams = dsa.generateParams(1500, 30000);
-            } while (dsaParams.q < 300 || dsaParams.q > 1295 || dsaParams.p < 300 || dsaParams.q > 7000000 || dsaParams.g < 30 || dsaParams.g > 7000000);
+                code = this.createBatchMarkCode(batch, i);
+                decode = codes.decode(code, batch);
+            } while ( !decode.signOk );
+            result.push({
+                code: code,
+                decoded: decode
+            });
+        }
+        return result;
+    }
 
-            keys = dsa.generateKeys(dsaParams);
-        } while (keys.pri < 300 || keys.pri > 1295 || keys.pub < 5000);
-        testResult = dsaTest.quickTest(dsaParams, keys, ++trial);
-    } while (!testResult);
-    console.log('all done!');
+    exportToFile(csvDataPath, codes) {
+        const getCsvLine = (code, dCode, pCode, vCode) => {
+            return code + ';' + dCode + ';' + pCode + ';' + vCode + ';' + '\n';
+        };
 
-    //create batch full record
-    const result = {
-        producerId: producerId,
-        producerName: producerName,
-        id: id,
-        description: description,
-        version: codeVersion,
-        dsa: dsaParams,
-        publicKey: keys.pub,
-        privateKey: keys.pri
-    };
+        fs.writeFileSync(csvDataPath, getCsvLine('code', 'dCode', 'pCode', 'vCode'));
 
-    console.log('code batch record: ', result);
+        codes.forEach((code, i) => {
+            let dCode = '"https://d.rks.plus/' + code.code + '"';
+            let pCode = '"https://p.rks.plus/' + code.code + '"';
+            let vCode = '"' + code.decoded.descriptor + '-' + code.decoded.producerIdCode + '-'
+                + code.decoded.batchIdCode + '-' + code.decoded.idCode + '-' + code.decoded.sign + '"';
 
-    return result;
-}
-
-
-/**
- * creates markup code from id for batch
- * @param {{id: number, dsa: {q: number, p: number, g: number}, version: number, producerId: number, publicKey: number, privateKey: number}} batch
- * @param {number} id
- */
-function createBatchMarkCode(batch, id) {
-    return codes.encode(batch, id, batch.version);
-}
-
-/**
- * generates range of codes for batch from ids in range [from, to] (inclusive)
- * @param batch
- * @param from
- * @param to
- * @return {Array}
- */
-function generateRange(batch, from, to) {
-    const result = [];
-    for (let i = from; i < to + 1; i++) {
-        let code;
-        let decode;
-        do {
-            code = createBatchMarkCode(batch, i);
-            decode = codes.decode(code, batch);
-        } while ( !decode.signOk );
-        result.push({
-            code: code,
-            decoded: decode
+            fs.appendFileSync(csvDataPath, getCsvLine('"'+code.code+'"', dCode, pCode, vCode));
+            if (i % 100 === 0) console.log('Saved ' + i + ' codes');
+            if (i === codes.length - 1) console.log('Saved ' + i + ' codes to ' + csvDataPath + ' Done!');
         });
     }
-    return result;
 }
 
-
-module.exports = {
-    createBatch: createBatch,
-    generateRange: generateRange,
-};
+module.exports = BatchController;

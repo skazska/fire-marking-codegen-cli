@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/skazska/fire-marking-codegen-cli#readme",
   "dependencies": {
-    "@skazska/marking-codes": "^0.0.3",
+    "@skazska/marking-codes": "^0.0.4",
     "@skazska/nano-dsa": "^0.1.2",
     "commander": "^2.15.1",
     "inquirer": "^5.2.0"

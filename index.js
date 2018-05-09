@@ -1,131 +1,97 @@
 #!/usr/bin/env node
-const fs = require('fs');
+'use strict';
+
 const program = require('commander');
 // Require logic.js file and extract controller functions using JS destructuring assignment
-const { createBatch, generateRange } = require('./batch-controller');
-const { createBatchPrompt } = require('./batch-interactive');
+const { createBatchPrompt, generateCodesPrompt } = require('./batch-interactive');
+const BatchFileStorage = require('./batch-storage');
+const BatchController = require('./batch-controller');
 
-const checkInt = (val) => {
-    return /^[0-9]+$/.test(val);
-};
+const batchStorage = new BatchFileStorage(process.cwd() + '/data');
+const batchController = new BatchController(batchStorage);
 
-const prepareFolders = (batchId) => {
-    let dataPath = process.cwd() + '/data';
-    if (!fs.existsSync(dataPath)) {
-        console.log('no data folder', dataPath, ' creating');
-        fs.mkdirSync(dataPath);
-    }
-    dataPath += '/'+batchId;
-    if (!fs.existsSync(dataPath)) {
-        console.log('creating batch data folder', dataPath);
-        fs.mkdirSync(dataPath);
-    }
-    return dataPath;
-};
+const appReady = Promise.all(
+   [
+      batchStorage.promise,
+      batchController.promise
+   ]
+);
 
 program
-    .version('0.0.1')
+    .version('0.0.2')
     .description('Marking code batch management');
 
 program
-    .command('createBatch <producerId> <producerName> <batchId> <batchDescr> <markingVersion>')
+    .command('createBatch [producerId] [producerName] [batchId] [batchDescr] [markingVersion]')
     .alias('cb')
-    .description('Create code batch, <prodicerId> - (number), <producerName> - (string), <batchId> - (number), ' +
-       '<batchDescr> - (string) <markingVersion> - (number) currently - 0 only supported')
+    .description('Create code batch, [prodicerId] - (number), [producerName] - (string), [batchId] - (number), ' +
+       '[batchDescr] - (string) [markingVersion] - (number) currently - 0 only supported')
     .action((producerId, producerName, batchId, batchDescr, markingVersion) => {
-        if (checkInt(producerId)) {
-            producerId = parseInt(producerId);
-        } else {
-            console.log('producerId expected to be a number, provided value is ', producerId);
-        }
-        if (checkInt(batchId)) {
-            batchId = parseInt(batchId);
-        } else {
-            console.log('batchId expected to be a number, provided value is ', batchId);
-        }
-        if (checkInt(markingVersion)) {
-            markingVersion = parseInt(markingVersion);
-        } else {
-            console.log('markingVersion expected to be a number, provided value is ', markingVersion);
-        }
-        
-        let dataPath = prepareFolders(batchId);
-        dataPath += '/batchRecord.json';
-        if (fs.existsSync(dataPath)) {
-            console.log('batch record file ' + dataPath + ' exists!!! abort...');
-            return 0;
-        }
-        const batchRecord = createBatch(producerId, producerName, batchId, batchDescr, markingVersion);
-        fs.appendFile(dataPath, JSON.stringify(batchRecord), function (err) {
-            if (err) throw err;
-            console.log('Saved!');
+        let batch = {
+            producerId: parseInt(producerId),
+            producerName: producerName,
+            id: parseInt(batchId),
+            descr: batchDescr,
+            version: parseInt(markingVersion)
+        };
+
+        Promise.all([
+            appReady,
+            createBatchPrompt(batch)
+        ]).then( ([ [batchStorage, batchController], batchRecord ]) => {
+            batchStorage.isCreatable(batchRecord)
+                .then( ok => {
+                    return batchController.createBatch(batchRecord);
+                })
+                .then( batch => { return batchStorage.save(batch); })
+                .then( path => { console.log('saved to ', path) })
+                .catch( err => { console.error(err); });
         });
     });
 
 program
-    .command('generateCodes <batchId> <idFrom> <idTo>')
+    .command('generateCodes [batchId] [idFrom] [idTo]')
     .alias('g')
-    .description('Generate Codes in range <idFrom> (number) <idTo> (number) for batch identified by <batchId> (number) ' +
-       'barch record should already be created by *createBatch* command and stored in data folder')
+    .description('Generate Codes in range [idFrom] (number) [idTo] (number) for batch identified by [batchId] (number) ' +
+       'batch record should already be created by *createBatch* command and stored in data folder')
     .action((batchId, idFrom, idTo) => {
-        if (checkInt(batchId)) {
-            batchId = parseInt(batchId);
-        } else {
-            console.log('batchId expected to be a number, provided value is ', batchId);
-        }
-        if (checkInt(idFrom)) {
-            idFrom = parseInt(idFrom);
-        } else {
-            console.log('idFrom expected to be a number, provided value is ', idFrom);
-        }
-        if (checkInt(idTo)) {
-            idTo = parseInt(idTo);
-        } else {
-            console.log('idTo expected to be a number, provided value is ', idTo);
-        }
+        let params = {
+            id: parseInt(batchId),
+            from: parseInt(idFrom),
+            to: parseInt(idTo)
+        };
 
-        let dataPath = prepareFolders(batchId);
-        let batchRecordPath = dataPath + '/batchRecord.json';
-        let csvDataPath = dataPath + '/codes_' + idFrom + '_' + idTo + '.csv';
-        let jsonDataPath = dataPath + '/codes_' + idFrom + '_' + idTo + '.json';
-        if (fs.existsSync(csvDataPath)) {
-            console.log('batch record file ' + csvDataPath + ' exists!!! abort...');
-            return 0;
-        }
-        if (fs.existsSync(jsonDataPath)) {
-           console.log('batch record file ' + jsonDataPath + ' exists!!! abort...');
-           return 0;
-        }
-        fs.readFile(batchRecordPath, function(err, data) {
-            if (err) {
-                console.log('batch record file read error!', err);
-                return;
-            }
-            data = JSON.parse(data);
-            console.log('batch record: ', data);
-
-            const codes = generateRange(data, idFrom, idTo);
-
-            const getCsvLine = (code, dCode, pCode, vCode) => {
-                return code + ';' + dCode + ';' + pCode + ';' + vCode + ';' + '\n';
-            };
-            
-            fs.appendFileSync(csvDataPath, getCsvLine('code', 'dCode', 'pCode', 'vCode'));
-            
-            codes.forEach((code, i) => {
-                let dCode = '"https://d.rks.plus/' + code.code + '"';
-                let pCode = '"https://p.rks.plus/' + code.code + '"';
-                let vCode = '"' + code.decoded.descriptor + '-' + code.decoded.producerIdCode + '-'
-                    + code.decoded.batchIdCode + '-' + code.decoded.idCode + '-' + code.decoded.sign + '"';
-
-                fs.appendFileSync(csvDataPath, getCsvLine('"'+code.code+'"', dCode, pCode, vCode));
-                if (i % 100 === 0) console.log('Saved ' + i + ' codes');
-                if (i === codes.length - 1) console.log('Saved ' + i + ' codes Done!');
-            });
-
-           fs.appendFile(jsonDataPath, JSON.stringify(codes, null, '  '), function (err) {
-              if (err) throw err;
-           });
+        Promise.all([
+            appReady,
+            generateCodesPrompt(params)
+        ]).then( ([ [batchStorage, batchController], params ]) => {
+            batchStorage.read(params.id)
+                .then( batch => {
+                    return batchStorage.doesRangeIntersect(params)
+                        .then( does => {
+                            if (!does) {
+                                return batch;
+                            } else {
+                                return Promise.reject(new Error('Range '+ params.from + ' - ' + params.to + ' exists!'));
+                            }
+                        })
+                        .catch( err => Promise.reject(err));
+                })
+                .then( batch => {
+                    return {
+                        codes: batchController.generateRange(batch, params.from, params.to),
+                        batch: batch
+                    }
+                })
+                .then( ({codes, batch}) => {
+                    batchController.exportToFile(
+                        process.cwd() + '/data/' + batch.id + '/codes_' + params.from + '_' + params.to + '.csv',
+                        codes
+                    );
+                    return batchStorage.saveCodes(batch.id, codes, params.from, params.to);
+                })
+                .then( path => { console.log('saved to ', path) })
+                .catch( err => { console.error(err); });
         });
     });
 
